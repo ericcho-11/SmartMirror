@@ -1,3 +1,5 @@
+*Use in your Raspberry Pi Terminal*
+
 nano ~/.config/lxsession/LXDE/autostart
 
 Should only contain the following:
