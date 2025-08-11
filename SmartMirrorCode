@@ -123,7 +123,6 @@ def close_on_escape(event):
 
 #UI Setup
 root = tk.Tk()
-root.title("Cess' Mirror")
 root.configure(bg="Black")
 root.attributes("-fullscreen", True)
 
