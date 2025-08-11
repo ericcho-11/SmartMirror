@@ -1,0 +1,4 @@
+nano ~/.config/lxsession/LXDE/autostart
+
+Should only contain the following:
+@/usr/bin/python3 /home/pi/magic_mirror/magic_mirror.py
