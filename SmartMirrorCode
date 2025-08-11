@@ -1,0 +1,158 @@
+import os
+import time
+import socket
+from datetime import datetime, date
+import requests
+import random
+from icalevents.icalevents import events
+
+# ==== CONFIG ====
+WEATHER_API_KEY = "YOUR_OPENWEATHER_API_KEY"
+CITY = "Seattle"
+ICAL_URL = "YOUR_ICAL_URL"
+AFFIRMATION_API = "https://www.affirmations.dev/"
+
+# ==== NETWORK CHECK ====
+def wait_for_wifi(timeout=60):
+    start = time.time()
+    while true:
+        try:
+            socket.gethostbyname("google.com")
+            break
+        except socket.error:
+            if time.time() - start_time > timeout:
+                print("Wi-Fi not connected after timeout.")
+                break
+            time.sleep(2)
+
+wait_for_wifi()
+
+import tkinter as tk
+
+weather_cache = {"summary": None, "last_updated": 0}
+
+
+def get_cached_weather():
+    now = time.time()
+    # Refresh every 15 minutes (900 seconds)
+    if now - weather_cache["last_updated"] > 900:
+        weather_cache["summary"] = get_weather_summary()
+        weather_cache["last_updated"] = now
+    return weather_cache["summary"]
+
+
+def get_weather_summary():
+    try:
+        url = f"https://api.openweathermap.org/data/2.5/weather?q={CITY}&appid={WEATHER_API_KEY}&units=imperial"
+        response = requests.get(url).json()
+        if "weather" in response and "main" in response:
+            desc = response["weather"][0]["description"].capitalize()
+            temp = round(response["main"]["temp"])
+            return f"{desc}, {temp}°F"
+        else:
+            return "Weather Unavailable"
+    except:
+        return "Weather Error"
+
+
+calendar_cache = {"date": None, "text": None}
+
+
+def get_cached_events():
+    today = datetime.now().date()
+    if calendar_cache["date"] != today:
+        calendar_cache["text"] = get_today_events()
+        calendar_cache["date"] = today
+    return calendar_cache["text"]
+
+
+def get_today_events():
+    try:
+        now = datetime.now()
+        start = now.replace(hour=0, minute=0, second=0)
+        end = start + timedelta(days=1)
+
+        daily_events = events(url=ICAL_URL, start=start, end=end)
+
+        if not daily_events:
+            return "No events for today."
+
+        summary_list = []
+        for event in daily_events:
+            time = event.start.strftime("%I:%M %p") if event.start.time() else "All Day"
+            summary_list.append(f"{time}: {event.summary}")
+
+        return "Today's Events:\n" + "\n".join(summary_list)
+
+    except Exception as e:
+        return f"Could not fetch calendar: {e}"
+
+
+def get_current_time():
+    return datetime.now().strftime("%I:%M %p")
+
+
+def get_current_date():
+    return datetime.now().strftime("%A, %B %d")
+
+
+cached_affirmation = {"date": None, "text": None}
+
+
+def get_affirmation():
+    """Return the same affirmation for the whole day"""
+    today = datetime.now().strftime("%Y-%m-%d")
+    if cached_affirmation["date"] != today:
+        try:
+            response = requests.get("https://www.affirmations.dev")
+            if response.status_code == 200:
+                cached_affirmation["text"] = response.json().get("affirmation", "You are doing great!")
+            else:
+                cached_affirmation["text"] = "You are doing great!"
+            cached_affirmation["date"] = today
+        except:
+            cached_affirmation["text"] = "You are doing great!"
+
+    return cached_affirmation["text"]
+
+
+def close_on_escape(event):
+    root.destroy()
+
+
+
+#UI Setup
+root = tk.Tk()
+root.title("Cess' Mirror")
+root.configure(bg="Black")
+root.attributes("-fullscreen", True)
+
+#Labels
+time_label = tk.Label(root, font=("Helvetica", 48), fg="white", bg="black")
+date_label = tk.Label(root, font=("Helvetica", 24), fg="white", bg="black")
+weather_label = tk.Label(root, font=("Helvetica", 20), fg="white", bg="black")
+calendar_label = tk.Label(root, font=("Helvetica", 18), fg="white", bg="black", justify="left")
+affirmation_label = tk.Label(root, font=("Helvetica", 20, "italic"), fg="lightblue", bg="black", wraplength=400)
+
+time_label.pack(pady=(20, 0))
+date_label.pack()
+weather_label.place(x=10, y=30, anchor="nw")        # Top-left
+calendar_label.place(relx=1.0, x=-10, y=30, anchor="ne")  # Top-right
+affirmation_label.place(relx=0.5, rely=1.0, y=-20, anchor="s")  # Bottom-center
+
+
+root.bind("<Escape>", close_on_escape)
+
+
+# === REFRESH FUNCTION ===
+def refresh():
+    time_label.config(text=get_current_time())
+    date_label.config(text=get_current_date())
+    weather_label.config(text=get_cached_weather())
+    calendar_label.config(text=get_cached_events())
+    affirmation_label.config(text=get_affirmation())
+    root.after(60000, refresh)  # refresh every 60 seconds
+
+refresh()
+root.mainloop()
+
